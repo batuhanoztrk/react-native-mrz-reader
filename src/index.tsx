@@ -1,7 +1,9 @@
+import React, { useEffect } from 'react';
 import {
   requireNativeComponent,
   UIManager,
   Platform,
+  DeviceEventEmitter,
   type ViewStyle,
 } from 'react-native';
 
@@ -12,15 +14,30 @@ const LINKING_ERROR =
   '- You are not using Expo Go\n';
 
 type MrzReaderProps = {
-  color: string;
+  onMRZRead: (mrz: string) => void;
   style: ViewStyle;
 };
-
 const ComponentName = 'MrzReaderView';
 
-export const MrzReaderView =
+const MrzReaderViewBase =
   UIManager.getViewManagerConfig(ComponentName) != null
     ? requireNativeComponent<MrzReaderProps>(ComponentName)
     : () => {
         throw new Error(LINKING_ERROR);
       };
+
+const MrzReaderView = (props: MrzReaderProps) => {
+  useEffect(() => {
+    DeviceEventEmitter.addListener('onMRZRead', (event) => {
+      props.onMRZRead(event);
+    });
+
+    return () => {
+      DeviceEventEmitter.removeAllListeners('onMRZRead');
+    };
+  }, [props]);
+
+  return <MrzReaderViewBase {...props} />;
+};
+
+export default MrzReaderView;

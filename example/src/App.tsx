@@ -1,12 +1,31 @@
 import * as React from 'react';
 
-import { StyleSheet, View } from 'react-native';
-import { MrzReaderView } from 'react-native-mrz-reader';
+import { StyleSheet, View, PermissionsAndroid } from 'react-native';
+import MrzReaderView from 'react-native-mrz-reader';
 
 export default function App() {
+  const [isGranted, setIsGranted] = React.useState(false);
+
+  React.useEffect(() => {
+    PermissionsAndroid.request('android.permission.CAMERA').then((granted) => {
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        setIsGranted(true);
+      } else {
+        setIsGranted(false);
+      }
+    });
+  }, []);
+
   return (
     <View style={styles.container}>
-      <MrzReaderView color="#32a852" style={styles.box} />
+      {isGranted && (
+        <MrzReaderView
+          style={styles.box}
+          onMRZRead={(mrz) => {
+            console.log(mrz);
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -15,11 +34,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   box: {
-    width: 60,
-    height: 60,
-    marginVertical: 20,
+    width: '100%',
+    height: '100%',
   },
 });
