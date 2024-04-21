@@ -16,7 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.modules.core.DeviceEventManagerModule
-import com.mrzreader.analyzer.CardDetectionAnalyzer
+import com.mrzreader.analyzer.MrzReaderAnalyzer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,14 +34,17 @@ class CameraPreviewView @JvmOverloads constructor(
     private const val RATIO_16_9_VALUE = 16.0 / 9.0
   }
 
-  private val cardDetectionAnalyzer = CardDetectionAnalyzer(reactContext)
+  private val mrzReaderAnalyzer = MrzReaderAnalyzer(reactContext)
   private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
   private lateinit var surfaceProvider: Preview.SurfaceProvider
+
+  private var cameraType: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+  private var isCameraStarted = false
 
   init {
     surfaceTextureListener = this
 
-    cardDetectionAnalyzer.mrzInfo.observeForever{
+    mrzReaderAnalyzer.mrzInfo.observeForever {
       val mrz = it.toString().replace(Regex("\\s+"), "")
 
       CoroutineScope(Dispatchers.Main).launch {
@@ -50,8 +53,24 @@ class CameraPreviewView @JvmOverloads constructor(
     }
   }
 
+  fun setDocType(docType: String) {
+    mrzReaderAnalyzer.setDocType(docType)
+  }
+
+  fun setCameraType(cameraType: String) {
+    this.cameraType = when (cameraType) {
+      "front" -> CameraSelector.DEFAULT_FRONT_CAMERA
+      else -> CameraSelector.DEFAULT_BACK_CAMERA
+    }
+
+    if(isCameraStarted) {
+      startCamera()
+    }
+  }
+
   private fun sendMessageToReactNative(message: String) {
-    reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit("onMRZRead", message)
+    reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+      .emit("onMRZRead", message)
   }
 
   private fun aspectRatio(width: Int, height: Int): Int {
@@ -115,19 +134,18 @@ class CameraPreviewView @JvmOverloads constructor(
         .setResolutionSelector(resolutionSelector)
         .build()
         .also {
-          it.setAnalyzer(cameraExecutor, cardDetectionAnalyzer)
+          it.setAnalyzer(cameraExecutor, mrzReaderAnalyzer)
         }
-
-      val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
       try {
         cameraProvider.unbindAll()
         cameraProvider.bindToLifecycle(
           reactContext.currentActivity!! as LifecycleOwner,
-          cameraSelector,
+          cameraType,
           preview,
           imageAnalysis
         )
+        isCameraStarted = true
       } catch (exc: Exception) {
         exc.printStackTrace()
       }

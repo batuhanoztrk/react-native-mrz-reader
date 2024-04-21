@@ -13,20 +13,32 @@ const LINKING_ERROR =
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo Go\n';
 
-type MrzReaderProps = {
+export enum CameraType {
+  Front = 'front',
+  Back = 'back',
+}
+
+export enum DocType {
+  ID = 'ID_CARD',
+  Passport = 'PASSPORT',
+}
+
+export type MrzReaderProps = {
   onMRZRead: (mrz: string) => void;
+  cameraType?: CameraType;
+  docType: DocType;
   style: ViewStyle;
 };
 const ComponentName = 'MrzReaderView';
 
-const MrzReaderViewBase =
+const MrzReaderView =
   UIManager.getViewManagerConfig(ComponentName) != null
     ? requireNativeComponent<MrzReaderProps>(ComponentName)
     : () => {
         throw new Error(LINKING_ERROR);
       };
 
-const MrzReaderView = (props: MrzReaderProps) => {
+const MrzReader = (props: MrzReaderProps) => {
   useEffect(() => {
     DeviceEventEmitter.addListener('onMRZRead', (event) => {
       props.onMRZRead(event);
@@ -37,7 +49,7 @@ const MrzReaderView = (props: MrzReaderProps) => {
     };
   }, [props]);
 
-  return <MrzReaderViewBase {...props} />;
+  return <MrzReaderView {...props} />;
 };
 
-export default MrzReaderView;
+export default MrzReader;

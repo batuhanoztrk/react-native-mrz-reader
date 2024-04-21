@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Environment
 import android.util.Log
-import com.mrzreader.dto.enums.CardType
 import org.jmrtd.lds.icao.MRZInfo
 import java.io.File
 
@@ -92,13 +91,8 @@ class MrzUtil(private val context: Context) {
     }
   }
 
-  fun readMRZ(bitmap: Bitmap, cardType: CardType): MRZInfo? {
+  fun readMRZ(bitmap: Bitmap, docType: OcrUtil.DocType): MRZInfo? {
     try {
-      val docType: OcrUtil.DocType = when (cardType) {
-        CardType.TURKISH_NEW_ID_BACK -> OcrUtil.DocType.ID_CARD
-        else -> OcrUtil.DocType.OTHER
-      }
-
       val mrzInfo = ocrUtil.convertImageToText(bitmap, docType)
 
       return mrzInfo

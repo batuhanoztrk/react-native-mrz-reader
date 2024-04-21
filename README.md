@@ -57,12 +57,14 @@ Reads MRZ field for React Native
 ## Usage
 
 ```ts
-import MrzReaderView from "react-native-mrz-reader";
+import MrzReader, { CameraType, DocType } from 'react-native-mrz-reader';
 
 // ...
 
-<MrzReaderView
+<MrzReader
     style={{width: '100%', height: '100%'}}
+    docType={DocType.ID}
+    cameraType={CameraType.Back}
     onMRZRead={(mrz: string) => {
         console.log(mrz)
     }}
