@@ -1,7 +1,10 @@
 import * as React from 'react';
 
 import { StyleSheet, View, PermissionsAndroid } from 'react-native';
-import MrzReaderView, { CameraType, DocType } from 'react-native-mrz-reader';
+import MrzReaderView, {
+  CameraSelector,
+  DocType,
+} from 'react-native-mrz-reader';
 
 export default function App() {
   const [isGranted, setIsGranted] = React.useState(false);
@@ -20,7 +23,7 @@ export default function App() {
     <View style={styles.container}>
       {isGranted && (
         <MrzReaderView
-          cameraType={CameraType.Back}
+          cameraSelector={CameraSelector.Back}
           docType={DocType.Passport}
           style={styles.box}
           onMRZRead={(mrz) => {

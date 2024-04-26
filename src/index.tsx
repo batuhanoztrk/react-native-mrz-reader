@@ -13,7 +13,7 @@ const LINKING_ERROR =
   '- You rebuilt the app after installing the package\n' +
   '- You are not using Expo Go\n';
 
-export enum CameraType {
+export enum CameraSelector {
   Front = 'front',
   Back = 'back',
 }
@@ -25,7 +25,7 @@ export enum DocType {
 
 export type MrzReaderProps = {
   onMRZRead: (mrz: string) => void;
-  cameraType?: CameraType;
+  cameraSelector?: CameraSelector;
   docType: DocType;
   style: ViewStyle;
 };

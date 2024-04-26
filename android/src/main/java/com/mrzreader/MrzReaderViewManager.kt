@@ -12,13 +12,13 @@ class MrzReaderViewManager : SimpleViewManager<CameraPreviewView>() {
     return CameraPreviewView(reactContext)
   }
 
-  @ReactProp(name = "cameraType")
-  fun setCameraType(view: CameraPreviewView, cameraType: String) {
-    view.setCameraType(cameraType)
+  @ReactProp(name = "cameraSelector")
+  fun setCameraSelector(view: CameraPreviewView, cameraType: String) {
+    view.setCameraSelector(cameraType)
   }
 
   @ReactProp(name = "docType")
-  fun setCardType(view: CameraPreviewView, cardType: String) {
+  fun setDocType(view: CameraPreviewView, cardType: String) {
     view.setDocType(cardType)
   }
 }

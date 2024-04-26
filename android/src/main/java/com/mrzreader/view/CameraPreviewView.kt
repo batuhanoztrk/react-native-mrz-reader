@@ -5,7 +5,10 @@ import android.util.AttributeSet
 import android.view.Surface
 import android.view.TextureView
 import androidx.camera.core.AspectRatio
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.DisplayOrientedMeteringPointFactory
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.core.SurfaceRequest
@@ -22,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -37,9 +41,15 @@ class CameraPreviewView @JvmOverloads constructor(
   private val mrzReaderAnalyzer = MrzReaderAnalyzer(reactContext)
   private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
   private lateinit var surfaceProvider: Preview.SurfaceProvider
+  private var cameraProvider: ProcessCameraProvider? = null
 
-  private var cameraType: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+  private var cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
   private var isCameraStarted = false
+
+  private var camera: Camera? = null
+
+  private var lastTouchX: Float = 0f
+  private var lastTouchY: Float = 0f
 
   init {
     surfaceTextureListener = this
@@ -51,20 +61,52 @@ class CameraPreviewView @JvmOverloads constructor(
         sendMessageToReactNative(mrz)
       }
     }
+
+    setOnTouchListener { _, event ->
+      if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+        lastTouchX = event.x
+        lastTouchY = event.y
+        performClick()
+
+        true
+      } else false
+    }
   }
 
   fun setDocType(docType: String) {
     mrzReaderAnalyzer.setDocType(docType)
   }
 
-  fun setCameraType(cameraType: String) {
-    this.cameraType = when (cameraType) {
+  fun setCameraSelector(cameraType: String) {
+    this.cameraSelector = when (cameraType) {
       "front" -> CameraSelector.DEFAULT_FRONT_CAMERA
       else -> CameraSelector.DEFAULT_BACK_CAMERA
     }
 
-    if(isCameraStarted) {
+    if (isCameraStarted) {
       startCamera()
+    }
+  }
+
+  private fun focusOnPoint(x: Float, y: Float): Boolean {
+    camera?.let {
+      val factory = DisplayOrientedMeteringPointFactory(
+        display,
+        it.cameraInfo,
+        this.width / 2f,
+        this.height / 2f
+      )
+
+      val point = factory.createPoint(x, y)
+
+      val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+        .setAutoCancelDuration(5, TimeUnit.SECONDS).build()
+
+      it.cameraControl.startFocusAndMetering(action)
+
+      return true
+    } ?: run {
+      return false
     }
   }
 
@@ -95,7 +137,6 @@ class CameraPreviewView @JvmOverloads constructor(
   }
 
   override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-    // Handle changes (e.g., device rotation)
   }
 
   override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
@@ -103,7 +144,19 @@ class CameraPreviewView @JvmOverloads constructor(
   }
 
   override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-    // Handle updates to the surface
+  }
+
+  override fun performClick(): Boolean {
+    super.performClick()
+
+    return focusOnPoint(lastTouchX, lastTouchY)
+  }
+
+  override fun onDetachedFromWindow() {
+    super.onDetachedFromWindow()
+
+    cameraProvider?.unbindAll()
+    cameraExecutor.shutdown()
   }
 
   private fun startCamera() {
@@ -118,7 +171,7 @@ class CameraPreviewView @JvmOverloads constructor(
       ).build()
 
     cameraProviderFuture.addListener({
-      val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+      cameraProvider = cameraProviderFuture.get()
 
       val preview = Preview.Builder()
         .setResolutionSelector(resolutionSelector)
@@ -138,10 +191,10 @@ class CameraPreviewView @JvmOverloads constructor(
         }
 
       try {
-        cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(
+        cameraProvider!!.unbindAll()
+        camera = cameraProvider!!.bindToLifecycle(
           reactContext.currentActivity!! as LifecycleOwner,
-          cameraType,
+          cameraSelector,
           preview,
           imageAnalysis
         )

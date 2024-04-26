@@ -56,18 +56,18 @@ Reads MRZ field for React Native
 
 ## Usage
 
-```ts
-import MrzReader, { CameraType, DocType } from 'react-native-mrz-reader';
+```tsx
+import MrzReader, { CameraSelector, DocType } from 'react-native-mrz-reader';
 
 // ...
 
 <MrzReader
-    style={{width: '100%', height: '100%'}}
-    docType={DocType.ID}
-    cameraType={CameraType.Back}
-    onMRZRead={(mrz: string) => {
-        console.log(mrz)
-    }}
+  style={{width: '100%', height: '100%'}}
+  docType={DocType.Passport}
+  cameraSelector={CameraType.Back}
+  onMRZRead={(mrz: string) => {
+    console.log(mrz)
+  }}
 />
 ```
 
