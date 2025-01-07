@@ -14,38 +14,34 @@ var mrz = ""
 var temp_mrz = ""
 
 func calcCheckDigit(_ value: String) -> String {
-    let uppercaseLetters = CharacterSet.uppercaseLetters
-    let digits = CharacterSet.decimalDigits
-    let weights = [7, 3, 1]
-    var total = 0
+  let uppercaseLetters = CharacterSet.uppercaseLetters
+  let digits = CharacterSet.decimalDigits
+  let weights = [7, 3, 1]
+  var total = 0
     
-    for (index, character) in value.enumerated() {
+  for (index, character) in value.enumerated() {
     let unicodeScalar = character.unicodeScalars.first!
     let charValue: Int
-    
+  
     if uppercaseLetters.contains(unicodeScalar) {
-        charValue = Int(10 + unicodeScalar.value) - 65
+      charValue = Int(10 + unicodeScalar.value) - 65
+    } else if digits.contains(unicodeScalar) {
+      charValue = Int(String(character))!
+    } else if character == "<" {
+      charValue = 0
+    } else {
+      return "<"
     }
-    else if digits.contains(unicodeScalar) {
-        charValue = Int(String(character))!
-    }
-    else if character == "<" {
-        charValue = 0
-    }
-    else {
-        return "<"
-    }
-    
+  
     total += (charValue * weights[index % 3])
-    }
-    total = total % 10
-    return String(total)
+  }
+  total = total % 10
+  return String(total)
 }
 
 func validateMRZ(_ mrz: String) -> Bool {
   // print("Validating: " + mrz)
   var len = 44
-  let secondLineWithCheck = mrz.suffix(len)
   let documentNumberWithCheck = mrz.suffix(len).prefix(10)
   len = len - 10 - 3
   let birthDateWithCheck = mrz.suffix(len).prefix(7)
@@ -53,10 +49,22 @@ func validateMRZ(_ mrz: String) -> Bool {
   let expiryDateWithCheck = mrz.suffix(len).prefix(7)
   len = len - 7
   let optionalDataWithCheck = mrz.suffix(len).prefix(15)
-  if (calcCheckDigit(String(secondLineWithCheck.prefix(43))) != String(secondLineWithCheck.suffix(1))) {
-    // print("fail line check: " + secondLineWithCheck)
-    return false
-  }
+  
+  // see https://www.icao.int/publications/Documents/9303_p4_cons_en.pdf
+  
+  /* Composite check digit for characters of
+   machine readable data of the lower line
+   in positions 1 to 10, 14 to 20 and 22 to
+   43, including values for letters that are
+   a part of the number fields and their
+   check digits.
+   */
+  let secondLineWithCheck = documentNumberWithCheck +
+    birthDateWithCheck +
+    expiryDateWithCheck +
+    optionalDataWithCheck +
+    mrz.suffix(1)
+  
   if (calcCheckDigit(String(documentNumberWithCheck.prefix(9))) != String(documentNumberWithCheck.suffix(1))) {
     // print("fail docnum check: " + documentNumberWithCheck)
     return false
@@ -69,8 +77,29 @@ func validateMRZ(_ mrz: String) -> Bool {
     // print("fail expdate check: " + expiryDateWithCheck)
     return false
   }
-  if (calcCheckDigit(String(optionalDataWithCheck.prefix(14))) != String(optionalDataWithCheck.suffix(1))) {
+  if (String(optionalDataWithCheck.prefix(14)).allSatisfy { $0 == "<" }) {
+    /* When the personal number field is not
+     used, the character positions 29 to 42
+     in the second MRZ line should be
+     completed with filler characters (<)
+     (see also under “check digit”, character
+     position 43 below).*/
+    if let lastCharacter = optionalDataWithCheck.last,
+       lastCharacter != "<" && lastCharacter != "0" {
+      /* When the personal number field is not
+       used and filler characters (<) are used
+       in positions 29 to 42, the check digit
+       may be zero or the filler character (<) at
+       the option of the issuing State or
+       organization. */
+        return false
+    }
+  } else if (calcCheckDigit(String(optionalDataWithCheck.prefix(14))) != String(optionalDataWithCheck.suffix(1))) {
     // print("fail optdata check: " + optionalDataWithCheck)
+    return false
+  }
+  if (calcCheckDigit(String(secondLineWithCheck.prefix(39))) != String(secondLineWithCheck.suffix(1))) {
+    // print("fail line check: " + secondLineWithCheck)
     return false
   }
   return true
