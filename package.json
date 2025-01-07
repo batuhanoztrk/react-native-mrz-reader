@@ -44,6 +44,9 @@
     "url": "git+https://github.com/batuhanoztrk/react-native-mrz-reader.git"
   },
   "author": "Batuhan Öztürk <batuhanoztrk@hotmail.com> (https://github.com/batuhanoztrk)",
+  "contributors": [
+    "Halit Özsoy <halitozsoy1584@gmail.com> (https://github.com/corupta)"
+  ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/batuhanoztrk/react-native-mrz-reader/issues"

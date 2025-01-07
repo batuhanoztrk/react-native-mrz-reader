@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   requireNativeComponent,
   UIManager,
@@ -39,17 +39,46 @@ const MrzReaderView =
       };
 
 const MrzReader = (props: MrzReaderProps) => {
+  const { onMRZRead, docType, cameraSelector } = props;
+  const onMRZReadIOS = useCallback(
+    (event: any) => {
+      onMRZRead(event.nativeEvent.mrz);
+    },
+    [onMRZRead]
+  );
   useEffect(() => {
-    DeviceEventEmitter.addListener('onMRZRead', (event) => {
-      props.onMRZRead(event);
-    });
+    if (Platform.OS === 'ios') {
+      if (docType !== DocType.Passport) {
+        throw new Error(
+          `Only passport document type is supported on iOS. Received docType: "${docType}"`
+        );
+      }
+    }
+  }, [docType]);
+  useEffect(() => {
+    if (Platform.OS === 'ios') {
+      if (cameraSelector && cameraSelector !== CameraSelector.Back) {
+        throw new Error(
+          `Only back camera is supported on IOS. Received cameraSelector: "${cameraSelector}"`
+        );
+      }
+    }
+  }, [cameraSelector]);
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      DeviceEventEmitter.addListener('onMRZRead', (event) => {
+        onMRZRead(event);
+      });
+    }
 
     return () => {
-      DeviceEventEmitter.removeAllListeners('onMRZRead');
+      if (Platform.OS === 'android') {
+        DeviceEventEmitter.removeAllListeners('onMRZRead');
+      }
     };
-  }, [props]);
+  }, [onMRZRead]);
 
-  return <MrzReaderView {...props} />;
+  return <MrzReaderView {...props} onMRZRead={onMRZReadIOS} />;
 };
 
 export default MrzReader;

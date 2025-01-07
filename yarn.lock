@@ -10839,6 +10839,7 @@ __metadata:
     babel-plugin-module-resolver: ^5.0.0
     react: 18.2.0
     react-native: 0.73.7
+    react-native-permissions: ^5.2.2
   languageName: unknown
   linkType: soft
 
@@ -10870,6 +10871,20 @@ __metadata:
     react-native: "*"
   languageName: unknown
   linkType: soft
+
+"react-native-permissions@npm:^5.2.2":
+  version: 5.2.2
+  resolution: "react-native-permissions@npm:5.2.2"
+  peerDependencies:
+    react: ">=18.1.0"
+    react-native: ">=0.70.0"
+    react-native-windows: ">=0.70.0"
+  peerDependenciesMeta:
+    react-native-windows:
+      optional: true
+  checksum: 9f8a853b894c97b3384713e60d68440c559a61a29c4cefcada9886220a4c81a9730f37820fbeff1dc5e6a73921a5fbf8a5185e468426385f27fce41e67c782a5
+  languageName: node
+  linkType: hard
 
 "react-native@npm:0.73.7":
   version: 0.73.7
