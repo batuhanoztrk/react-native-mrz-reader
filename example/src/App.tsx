@@ -1,20 +1,36 @@
 import * as React from 'react';
 
-import { StyleSheet, View, PermissionsAndroid } from 'react-native';
+import { StyleSheet, View, Platform } from 'react-native';
 import MrzReaderView, {
   CameraSelector,
   DocType,
 } from 'react-native-mrz-reader';
+import * as Permissions from 'react-native-permissions';
 
 export default function App() {
   const [isGranted, setIsGranted] = React.useState(false);
 
   React.useEffect(() => {
-    PermissionsAndroid.request('android.permission.CAMERA').then((granted) => {
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        setIsGranted(true);
-      } else {
-        setIsGranted(false);
+    Permissions.request(
+      (() => {
+        switch (Platform.OS) {
+          case 'ios':
+            return Permissions.PERMISSIONS.IOS.CAMERA;
+          case 'android':
+            return Permissions.PERMISSIONS.ANDROID.CAMERA;
+          default:
+            throw new Error(`Unsupported platform: ${Platform.OS}`);
+        }
+      })()
+    ).then((granted) => {
+      switch (granted) {
+        case Permissions.RESULTS.GRANTED:
+        case Permissions.RESULTS.LIMITED:
+          setIsGranted(true);
+          break;
+        default:
+          setIsGranted(false);
+          break;
       }
     });
   }, []);

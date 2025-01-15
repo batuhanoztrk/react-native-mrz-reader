@@ -1,6 +1,9 @@
 # MRZ Reader Camera for React Native
 
-Reads MRZ field for React Native
+Reads MRZ field for React Native (Both iOS and Android)
+
+IOS Version only supports TD3 format Passport MRZ (doesn't support id cards), and only supports back camera.
+Android Version only reads document number, expiry date, birth date, and fills rest of the fields empty.
 
 ## Installation
 
@@ -27,12 +30,22 @@ Reads MRZ field for React Native
    Add the following code in your app to request camera permission at runtime:
 
    ```ts
-   import { PermissionsAndroid } from 'react-native';
+   import { Platform} from 'react-native';
+   import * as Permissions from 'react-native-permissions';
 
    async function requestCameraPermission() {
      try {
-       const granted = await PermissionsAndroid.request(
-         PermissionsAndroid.PERMISSIONS.CAMERA,
+       const granted = await Permissions.request(
+         (() => {
+           switch(Platform.OS) {
+             case 'ios':
+               return Permissions.PERMISSIONS.IOS.CAMERA;
+             case 'android':
+               return Permissions.PERMISSIONS.ANDROID.CAMERA;
+             default:
+               throw new Error(`Unsupported platform: ${Platform.OS}`);
+           }
+         })(),
          {
            title: 'Camera Permission',
            message: 'This app needs access to your camera to scan MRZ.',
@@ -41,10 +54,14 @@ Reads MRZ field for React Native
            buttonPositive: 'OK',
          }
        );
-       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-         console.log('You can use the camera');
-       } else {
-         console.log('Camera permission denied');
+       switch(granted) {
+         case Permissions.RESULTS.GRANTED:
+         case Permissions.RESULTS.LIMITED:
+           console.log('You can use the camera');
+           break;
+         default:
+           console.log('Camera permission denied');
+           break;
        }
      } catch (err) {
        console.warn(err);
@@ -86,3 +103,8 @@ MIT
 ---
 
 Made with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
+
+
+## Additional
+
+IOS Version is implemented via Vision API by [@corupta](https://github.com/corupta) following the base implementation from [girayk/MrzScanner](https://github.com/girayk/MrzScanner)
