@@ -2,8 +2,9 @@
 
 Reads MRZ field for React Native (Both iOS and Android)
 
-IOS Version only supports TD3 format Passport MRZ (doesn't support id cards), and only supports back camera.
-Android Version only reads document number, expiry date, birth date, and fills rest of the fields empty.
+> **_NOTE:_** IOS Version only supports TD3 format Passport MRZ (doesn't support id cards), and only supports back camera.
+
+> **_NOTE:_** Android Version only reads document number, expiry date, birth date, and fills rest of the fields empty.
 
 ## Installation
 
@@ -69,8 +70,6 @@ Android Version only reads document number, expiry date, birth date, and fills r
    }
    ```
 
-**Note**: This plugin is currently only available for Android devices.
-
 ## Usage
 
 ```tsx
@@ -96,6 +95,12 @@ For a detailed example of how to use the NFC Passport Reader, please see the [Ex
 
 See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the repository and the development workflow.
 
+## Contributors
+
+<a href="https://github.com/batuhanoztrk/react-native-mrz-reader/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=batuhanoztrk/react-native-mrz-reader" />
+</a>
+
 ## License
 
 MIT
@@ -103,8 +108,3 @@ MIT
 ---
 
 Made with [create-react-native-library](https://github.com/callstack/react-native-builder-bob)
-
-
-## Additional
-
-IOS Version is implemented via Vision API by [@corupta](https://github.com/corupta) following the base implementation from [girayk/MrzScanner](https://github.com/girayk/MrzScanner)
