@@ -228,11 +228,9 @@ class OcrUtil {
           }
           //---------------------
           if (isValidMrz) {
-            val mrzInfoTemp: MRZInfo? =
-              buildTempMrz(documentNumber, dateOfBirthDay, expiryDate, docType)
-            if (mrzInfoTemp != null) {
-              mrzInfo = matcherPassportTD3Line1 + matcherPassportTD3Line2
-            }
+            val line1 = matcherPassportTD3Line1.group(0).toString()
+            val line2 = matcherPassportTD3Line2.group(0).toString()
+            mrzInfo = MRZInfo(line1 + line2)
           }
 
           return mrzInfo
