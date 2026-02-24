@@ -219,8 +219,11 @@ class OcrUtil {
           }
           //---------------------
           if (isValidMrz) {
-            val line1 = matcherPassportTD3Line1.group(0).toString()
-            val line2 = matcherPassportTD3Line2.group(0).toString()
+            val line1 = matcherPassportTD3Line1.group(0)
+            val line2 = matcherPassportTD3Line2.group(0)
+
+            if (line1 == null || line2 == null) return null
+
             val mrzRaw = line1 + line2
             val info = MRZInfo(mrzRaw)
             return MrzFilterResult(mrzInfo = info, mrzRaw = mrzRaw)
@@ -237,7 +240,8 @@ class OcrUtil {
 
   companion object {
     // TD1 (3 lines x 30 chars)
-    private const val ID_CARD_TD_1_LINE_1_REGEX = "([A|C|I][A-Z0-9<]{1})([A-Z]{3})([A-Z0-9<]{25})" // 30 total
+    private const val ID_CARD_TD_1_LINE_1_REGEX =
+      "([A|C|I][A-Z0-9<]{1})([A-Z]{3})([A-Z0-9<]{25})" // 30 total
     private const val ID_CARD_TD_1_LINE_2_REGEX =
       "([0-9]{6})([0-9]{1})([M|F|X|<]{1})([0-9]{6})([0-9]{1})([A-Z]{3})([A-Z0-9<]{11})([0-9]{1})" // 30 total
     private const val ID_CARD_TD_1_LINE_3_REGEX = "([A-Z0-9<]{30})"
