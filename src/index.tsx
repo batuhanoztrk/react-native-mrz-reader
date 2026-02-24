@@ -23,9 +23,20 @@ export enum DocType {
   Passport = 'PASSPORT',
 }
 
+export enum PreviewViewType {
+  SURFACE_VIEW = 'surface-view',
+  TEXTURE_VIEW = 'texture-view',
+}
+
+export enum ResizeMode {
+  COVER = 'cover',
+  CONTAIN = 'contain',
+}
 export type MrzReaderProps = {
   onMRZRead: (mrz: string) => void;
   cameraSelector?: CameraSelector;
+  androidPreviewViewType?: PreviewViewType;
+  resizeMode?: ResizeMode;
   docType: DocType;
   style: ViewStyle;
 };

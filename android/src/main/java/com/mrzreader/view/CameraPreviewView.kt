@@ -1,42 +1,44 @@
 package com.mrzreader.view
 
-import android.graphics.SurfaceTexture
 import android.util.AttributeSet
-import android.view.Surface
-import android.view.TextureView
+import android.view.Gravity
+import android.widget.FrameLayout
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.DisplayOrientedMeteringPointFactory
-import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
-import androidx.camera.core.SurfaceRequest
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.mrzreader.analyzer.MrzReaderAnalyzer
+import com.mrzreader.extensions.installHierarchyFitter
+import com.mrzreader.types.PreviewViewType
+import com.mrzreader.types.ResizeMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.min
 
 class CameraPreviewView @JvmOverloads constructor(
   private val reactContext: ReactContext, attrs: AttributeSet? = null, defStyleAttr: Int = 0
-) : TextureView(reactContext, attrs, defStyleAttr), TextureView.SurfaceTextureListener {
+) : FrameLayout(reactContext, attrs, defStyleAttr) {
 
   companion object {
     private const val RATIO_4_3_VALUE = 4.0 / 3.0
     private const val RATIO_16_9_VALUE = 16.0 / 9.0
   }
+
+  private var previewView: PreviewView? = null
+  private val mainCoroutineScope = CoroutineScope(Dispatchers.Main)
 
   private val mrzReaderAnalyzer = MrzReaderAnalyzer(reactContext)
   private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -48,11 +50,20 @@ class CameraPreviewView @JvmOverloads constructor(
 
   private var camera: Camera? = null
 
-  private var lastTouchX: Float = 0f
-  private var lastTouchY: Float = 0f
+  var androidPreviewViewType: PreviewViewType = PreviewViewType.SURFACE_VIEW
+    set(value) {
+      field = value
+      updatePreview()
+    }
+  var resizeMode: ResizeMode = ResizeMode.COVER
+    set(value) {
+      field = value
+      updatePreview()
+    }
 
   init {
-    surfaceTextureListener = this
+    this.installHierarchyFitter()
+    updatePreview()
 
     mrzReaderAnalyzer.mrzInfo.observeForever {
       val mrz = it.toString().replace(Regex("\\s+"), "")
@@ -61,17 +72,33 @@ class CameraPreviewView @JvmOverloads constructor(
         sendMessageToReactNative(mrz)
       }
     }
+  }
 
-    setOnTouchListener { _, event ->
-      if (event.action == android.view.MotionEvent.ACTION_DOWN) {
-        lastTouchX = event.x
-        lastTouchY = event.y
-        performClick()
-
-        true
-      } else false
+  private fun updatePreview() {
+    mainCoroutineScope.launch {
+      if (previewView == null) {
+        previewView = createPreviewView()
+        addView(previewView)
+      }
+      previewView?.let {
+        // Update implementation type from React
+        it.implementationMode = androidPreviewViewType.toPreviewImplementationMode()
+        // Update scale type from React
+        it.scaleType = resizeMode.toScaleType()
+      }
+      startCamera()
     }
   }
+
+  private fun createPreviewView(): PreviewView =
+    PreviewView(context).also {
+      it.installHierarchyFitter()
+      it.layoutParams = LayoutParams(
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.MATCH_PARENT,
+        Gravity.CENTER
+      )
+    }
 
   fun setDocType(docType: String) {
     mrzReaderAnalyzer.setDocType(docType)
@@ -85,28 +112,6 @@ class CameraPreviewView @JvmOverloads constructor(
 
     if (isCameraStarted) {
       startCamera()
-    }
-  }
-
-  private fun focusOnPoint(x: Float, y: Float): Boolean {
-    camera?.let {
-      val factory = DisplayOrientedMeteringPointFactory(
-        display,
-        it.cameraInfo,
-        this.width / 2f,
-        this.height / 2f
-      )
-
-      val point = factory.createPoint(x, y)
-
-      val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
-        .setAutoCancelDuration(5, TimeUnit.SECONDS).build()
-
-      it.cameraControl.startFocusAndMetering(action)
-
-      return true
-    } ?: run {
-      return false
     }
   }
 
@@ -124,33 +129,6 @@ class CameraPreviewView @JvmOverloads constructor(
     return AspectRatio.RATIO_16_9
   }
 
-  override fun onSurfaceTextureAvailable(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
-    val surface = Surface(surfaceTexture)
-    surfaceProvider = Preview.SurfaceProvider { request: SurfaceRequest ->
-      val resolution = request.resolution
-      surfaceTexture.setDefaultBufferSize(resolution.width, resolution.height)
-      request.provideSurface(surface, cameraExecutor) {
-        // Handle surface completion
-      }
-    }
-    startCamera()
-  }
-
-  override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-  }
-
-  override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-    return true
-  }
-
-  override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-  }
-
-  override fun performClick(): Boolean {
-    super.performClick()
-
-    return focusOnPoint(lastTouchX, lastTouchY)
-  }
 
   override fun onDetachedFromWindow() {
     super.onDetachedFromWindow()
@@ -166,7 +144,7 @@ class CameraPreviewView @JvmOverloads constructor(
       ResolutionSelector.Builder().setAspectRatioStrategy(
         AspectRatioStrategy(
           aspectRatio(width, height),
-          AspectRatioStrategy.FALLBACK_RULE_NONE
+          AspectRatioStrategy.FALLBACK_RULE_AUTO
         )
       ).build()
 
@@ -177,7 +155,7 @@ class CameraPreviewView @JvmOverloads constructor(
         .setResolutionSelector(resolutionSelector)
         .build()
         .also {
-          it.setSurfaceProvider(this.surfaceProvider)
+          it.setSurfaceProvider(this.previewView?.surfaceProvider)
         }
 
       val imageAnalysis = ImageAnalysis.Builder()
