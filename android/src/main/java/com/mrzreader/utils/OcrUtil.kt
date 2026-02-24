@@ -14,7 +14,6 @@ import com.googlecode.leptonica.android.Rotate
 import com.googlecode.leptonica.android.Skew
 import com.googlecode.leptonica.android.WriteFile
 import com.mrzreader.R
-import net.sf.scuba.data.Gender
 import org.jmrtd.lds.icao.MRZInfo
 import java.io.File
 import java.io.FileOutputStream
@@ -23,6 +22,11 @@ import java.util.regex.Pattern
 
 class OcrUtil {
   var imageTextReader: ImageTextReader? = null
+
+  private data class MrzFilterResult(
+    val mrzInfo: MRZInfo,
+    val mrzRaw: String
+  )
 
   private fun preProcessBitmap(tBitmap: Bitmap): Bitmap? {
     var bitmap = tBitmap
@@ -68,12 +72,10 @@ class OcrUtil {
     try {
       val bitmapProcess = preProcessBitmap(bitmap)
       val res = imageTextReader?.getTextFromBitmap(bitmapProcess)
-      val cleanText =
-        Html.fromHtml(res).toString().trim().replace(" ", "")
+      val cleanText = Html.fromHtml(res).toString().trim().replace(" ", "")
 
-      val mrzInfo = filterScannedText(cleanText, docType)
-
-      return mrzInfo
+      val result = filterScannedText(cleanText, docType)
+      return result?.mrzInfo
     } catch (e: Exception) {
       Log.e("OcrUtil", "Error converting image to text: $e")
     }
@@ -81,7 +83,7 @@ class OcrUtil {
     return null
   }
 
-  private fun filterScannedText(element: String, docType: DocType): MRZInfo? {
+  private fun filterScannedText(element: String, docType: DocType): MrzFilterResult? {
     try {
       var scannedTextBuffer = ""
       scannedTextBuffer += element.replace(" ", "")
@@ -131,7 +133,7 @@ class OcrUtil {
         val strClearValue = scannedTextBuffer.substring(intFirstPosition)
         val intClearValueLen = strClearValue.length
 
-        if (intClearValueLen == 85) {
+        if (intClearValueLen >= 88) {
           scannedTextBuffer = strClearValue
         }
       }
@@ -141,48 +143,42 @@ class OcrUtil {
         val matcherIDCardTD1Line1 = patternIDCardTD1Line1.matcher(scannedTextBuffer)
         val patternIDCardTD1Line2 = Pattern.compile(ID_CARD_TD_1_LINE_2_REGEX)
         val matcherIDCardTD1Line2 = patternIDCardTD1Line2.matcher(scannedTextBuffer)
+        val patternIDCardTD1Line3 = Pattern.compile(ID_CARD_TD_1_LINE_3_REGEX)
+        val matcherIDCardTD1Line3 = patternIDCardTD1Line3.matcher(scannedTextBuffer)
 
+        if (matcherIDCardTD1Line1.find() && matcherIDCardTD1Line2.find() && matcherIDCardTD1Line3.find()) {
+          // Prefer exact TD1 length (90) starting from the detected type marker (I< / 1< / 1K / IK)
+          val startIdx = scannedTextBuffer.indexOf(typeIdCard).takeIf { it >= 0 } ?: return null
+          val candidate = scannedTextBuffer.substring(startIdx)
+          if (candidate.length < 90) return null
 
-        if (matcherIDCardTD1Line1.find() && matcherIDCardTD1Line2.find()) {
+          val mrzRaw = candidate.substring(0, 90)
+          val line1 = mrzRaw.substring(0, 30)
+          val line2 = mrzRaw.substring(30, 60)
+          // val line3 = mrzRaw.substring(60, 90) // kept for completeness
 
-          var line1 = matcherIDCardTD1Line1.group(0)?.toString() ?: ""
-          val line2 = matcherIDCardTD1Line2.group(0)?.toString() ?: ""
-          var mrzInfo: MRZInfo? = null
-          if (scannedTextBuffer.indexOf(typeIdCard) >= 0 && line1.length >= 14 && line2.length >= 14) {
-
-            line1 = scannedTextBuffer.substring(
-              scannedTextBuffer.indexOf(
-                typeIdCard
-              )
-            )
-
-            if (line1.length >= 14) {
-              var documentNumber = line1.substring(5, 14)
-              if (documentNumber.substring(3, 4) == "0") {
-                documentNumber =
-                  documentNumber.substring(0, 3) + "O" + documentNumber.substring(4, 9)
-              }
-              //  documentNumber = documentNumber.replace("O", "0");
-              val dateOfBirthDay = line2.substring(0, 6)
-              val expiryDate = line2.substring(8, 14)
-              mrzInfo = buildTempMrz(documentNumber, dateOfBirthDay, expiryDate, docType)
-              val chkdocumentNumber = line1.substring(14, 15)[0]
-              val chkdateOfBirthDay = line2.substring(6, 7)[0]
-              val chkexpiryDate = line2.substring(14, 15)[0]
-              val valdocumentNumber = MRZInfo.checkDigit(documentNumber)
-              val valdateOfBirthDay = MRZInfo.checkDigit(dateOfBirthDay)
-              val valexpiryDate = MRZInfo.checkDigit(expiryDate)
-              val comparedocumentNumber = chkdocumentNumber.compareTo(valdocumentNumber)
-              val comparedateOfBirthDay = chkdateOfBirthDay.compareTo(valdateOfBirthDay)
-              val compareexpiryDate = chkexpiryDate.compareTo(valexpiryDate)
-
-              if (comparedocumentNumber != 0) mrzInfo = null
-              if (comparedateOfBirthDay != 0) mrzInfo = null
-              if (compareexpiryDate != 0) mrzInfo = null
-            }
+          // Minimal validation (same as before)
+          var documentNumber = line1.substring(5, 14)
+          if (documentNumber.substring(3, 4) == "0") {
+            documentNumber = documentNumber.substring(0, 3) + "O" + documentNumber.substring(4, 9)
           }
+          val dateOfBirthDay = line2.substring(0, 6)
+          val expiryDate = line2.substring(8, 14)
 
-          return mrzInfo
+          val chkdocumentNumber = line1.substring(14, 15)[0]
+          val chkdateOfBirthDay = line2.substring(6, 7)[0]
+          val chkexpiryDate = line2.substring(14, 15)[0]
+
+          val valdocumentNumber = MRZInfo.checkDigit(documentNumber)
+          val valdateOfBirthDay = MRZInfo.checkDigit(dateOfBirthDay)
+          val valexpiryDate = MRZInfo.checkDigit(expiryDate)
+
+          if (chkdocumentNumber.compareTo(valdocumentNumber) != 0) return null
+          if (chkdateOfBirthDay.compareTo(valdateOfBirthDay) != 0) return null
+          if (chkexpiryDate.compareTo(valexpiryDate) != 0) return null
+
+          val mrzInfo = MRZInfo(mrzRaw)
+          return MrzFilterResult(mrzInfo = mrzInfo, mrzRaw = mrzRaw)
         }
       } else if (docType === DocType.PASSPORT) {
         val patternPassportTD3Line1 = Pattern.compile(PASSPORT_TD_3_LINE_1_REGEX)
@@ -200,8 +196,6 @@ class OcrUtil {
           val dateOfBirthDay = line2.substring(13, 19)
           val expiryDate = line2.substring(21, 27)
 
-          var mrzInfo: MRZInfo? = null
-
           //-----------------------------
 
           val chkdocumentNumber = line2.substring(9, 10)[0]
@@ -215,27 +209,27 @@ class OcrUtil {
           val compareexpiryDate = chkexpiryDate.compareTo(valexpiryDate)
           var isValidMrz = true
           if (comparedocumentNumber != 0) {
-            mrzInfo = null
             isValidMrz = false
           }
           if (comparedateOfBirthDay != 0) {
-            mrzInfo = null
             isValidMrz = false
           }
           if (compareexpiryDate != 0) {
-            mrzInfo = null
             isValidMrz = false
           }
           //---------------------
           if (isValidMrz) {
-            val mrzInfoTemp: MRZInfo? =
-              buildTempMrz(documentNumber, dateOfBirthDay, expiryDate, docType)
-            if (mrzInfoTemp != null) {
-              mrzInfo = mrzInfoTemp
-            }
+            val line1 = matcherPassportTD3Line1.group(0)
+            val line2 = matcherPassportTD3Line2.group(0)
+
+            if (line1 == null || line2 == null) return null
+
+            val mrzRaw = line1 + line2
+            val info = MRZInfo(mrzRaw)
+            return MrzFilterResult(mrzInfo = info, mrzRaw = mrzRaw)
           }
 
-          return mrzInfo
+          return null
         }
       }
 
@@ -244,80 +238,13 @@ class OcrUtil {
     return null
   }
 
-  @Synchronized
-  private fun buildTempMrz(
-    documentNumber: String,
-    dateOfBirth: String,
-    expiryDate: String,
-    docType: DocType
-  ): MRZInfo? {
-    var mrzInfo: MRZInfo? = null
-    try {
-      if (docType === DocType.ID_CARD) {
-        mrzInfo = MRZInfo(
-          "P",
-          "NNN",
-          "",
-          "",
-          documentNumber,
-          "NNN",
-          dateOfBirth,
-          Gender.UNSPECIFIED,
-          expiryDate,
-          ""
-        )
-      }
-      if (docType === DocType.PASSPORT) {
-        mrzInfo = MRZInfo(
-          "P",
-          "NNN",
-          "",
-          "",
-          documentNumber,
-          "NNN",
-          dateOfBirth,
-          Gender.UNSPECIFIED,
-          expiryDate,
-          ""
-        )
-      }
-      if (docType === DocType.FRONT) {
-        mrzInfo = MRZInfo(
-          "P",
-          "NNN",
-          "",
-          "",
-          documentNumber,
-          "NNN",
-          dateOfBirth,
-          Gender.UNSPECIFIED,
-          expiryDate,
-          ""
-        )
-      }
-      if (docType === DocType.OLD_ID) {
-        mrzInfo = MRZInfo(
-          "P",
-          "NNN",
-          "",
-          "",
-          documentNumber,
-          "NNN",
-          dateOfBirth,
-          Gender.UNSPECIFIED,
-          expiryDate,
-          ""
-        )
-      }
-    } catch (_: Exception) {
-    }
-    return mrzInfo
-  }
-
   companion object {
-    private const val ID_CARD_TD_1_LINE_1_REGEX = "([A|C|I][A-Z0-9<]{1})([A-Z]{3})([A-Z0-9<]{31})"
+    // TD1 (3 lines x 30 chars)
+    private const val ID_CARD_TD_1_LINE_1_REGEX =
+      "([A|C|I][A-Z0-9<]{1})([A-Z]{3})([A-Z0-9<]{25})" // 30 total
     private const val ID_CARD_TD_1_LINE_2_REGEX =
-      "([0-9]{6})([0-9]{1})([M|F|X|<]{1})([0-9]{6})([0-9]{1})([A-Z]{3})([A-Z0-9<]{11})([0-9]{1})"
+      "([0-9]{6})([0-9]{1})([M|F|X|<]{1})([0-9]{6})([0-9]{1})([A-Z]{3})([A-Z0-9<]{11})([0-9]{1})" // 30 total
+    private const val ID_CARD_TD_1_LINE_3_REGEX = "([A-Z0-9<]{30})"
     private const val PASSPORT_TD_3_LINE_1_REGEX = "(P[A-Z0-9<]{1})([A-Z]{3})([A-Z0-9<]{39})"
     private const val PASSPORT_TD_3_LINE_2_REGEX =
       "([A-Z0-9<]{9})([0-9]{1})([A-Z]{3})([0-9]{6})([0-9]{1})([M|F|X|<]{1})([0-9]{6})([0-9]{1})([A-Z0-9<]{14})([0-9]{1})([0-9]{1})"
@@ -328,6 +255,6 @@ class OcrUtil {
 
 
   enum class DocType {
-    PASSPORT, ID_CARD, OTHER, FRONT, OLD_ID, OLD_DRIVER, NEW_DRIVER
+    PASSPORT, ID_CARD,
   }
 }

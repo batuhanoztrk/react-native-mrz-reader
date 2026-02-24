@@ -4,8 +4,6 @@ Reads MRZ field for React Native (Both iOS and Android)
 
 > **_NOTE:_** IOS Version only supports TD3 format Passport MRZ (doesn't support id cards), and only supports back camera.
 
-> **_NOTE:_** Android Version only reads document number, expiry date, birth date, and fills rest of the fields empty.
-
 ## Installation
 
 1. **Install the Plugin**:
@@ -31,14 +29,14 @@ Reads MRZ field for React Native (Both iOS and Android)
    Add the following code in your app to request camera permission at runtime:
 
    ```ts
-   import { Platform} from 'react-native';
+   import { Platform } from 'react-native';
    import * as Permissions from 'react-native-permissions';
 
    async function requestCameraPermission() {
      try {
        const granted = await Permissions.request(
          (() => {
-           switch(Platform.OS) {
+           switch (Platform.OS) {
              case 'ios':
                return Permissions.PERMISSIONS.IOS.CAMERA;
              case 'android':
@@ -55,7 +53,7 @@ Reads MRZ field for React Native (Both iOS and Android)
            buttonPositive: 'OK',
          }
        );
-       switch(granted) {
+       switch (granted) {
          case Permissions.RESULTS.GRANTED:
          case Permissions.RESULTS.LIMITED:
            console.log('You can use the camera');
@@ -78,13 +76,14 @@ import MrzReader, { CameraSelector, DocType } from 'react-native-mrz-reader';
 // ...
 
 <MrzReader
-  style={{width: '100%', height: '100%'}}
+  style={{ width: '100%', height: '100%' }}
   docType={DocType.Passport}
   cameraSelector={CameraType.Back}
+  resizeMode={ResizeMode.CONTAIN}
   onMRZRead={(mrz: string) => {
-    console.log(mrz)
+    console.log(mrz);
   }}
-/>
+/>;
 ```
 
 ## Example

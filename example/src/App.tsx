@@ -4,6 +4,7 @@ import { StyleSheet, View, Platform } from 'react-native';
 import MrzReaderView, {
   CameraSelector,
   DocType,
+  ResizeMode,
 } from 'react-native-mrz-reader';
 import * as Permissions from 'react-native-permissions';
 
@@ -42,6 +43,7 @@ export default function App() {
           cameraSelector={CameraSelector.Back}
           docType={DocType.Passport}
           style={styles.box}
+          resizeMode={ResizeMode.CONTAIN}
           onMRZRead={(mrz) => {
             console.log(mrz);
           }}
